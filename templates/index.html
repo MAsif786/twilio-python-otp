@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTP Creation and Validation</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #343a40;
+        }
+
+        .form-label {
+            color: #495057;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+
+        .btn-success:hover {
+            background-color: #1a7d33;
+            border-color: #1a7d33;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-6 mx-auto">
+                <h2 class="text-center mb-4">OTP Creation and Validation</h2>
+                <div id="phoneNumberSection">
+                    <label for="phoneNumber" class="form-label">Phone Number</label>
+                    <input type="tel" class="form-control" id="phoneNumber" required>
+                    <div class="form-check form-check-inline pt-2">
+                        <input class="form-check-input" type="radio" name="otpChannel" id="smsChannel" value="sms"
+                            checked>
+                        <label class="form-check-label" for="smsChannel">SMS</label>
+                    </div>
+                    <div class="form-check form-check-inline pt-2">
+                        <input class="form-check-input" type="radio" name="otpChannel" id="voiceChannel" value="voice">
+                        <label class="form-check-label" for="voiceChannel">Voice</label>
+                    </div>
+                    <br>
+                    <button type="button" class="btn btn-primary mt-3" id="sendOTPBtn">Send OTP</button>
+                </div>
+            </div>
+            <div id="otpSection" style="display: none;">
+                <label for="otpCode" class="form-label">OTP Code</label>
+                <input type="text" class="form-control" id="otpCode" required>
+                <button type="button" class="btn btn-success mt-3" id="validateOTPBtn">Validate OTP</button>
+                <div id="timer" class="mt-2"></div>
+                <button type="button" class="btn btn-link mt-2" id="sendAgainBtn">Send Again</button>
+            </div>
+            <div class="alert mt-3" id="resultMessage" role="alert" style="display: none;"></div>
+        </div>
+    </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const API_HOST = 'http://localhost:5000';
+            const EXPIRATION_TIME = 300; // 300 seconds = 5 minutes
+
+            const sendOTPBtn = document.getElementById('sendOTPBtn');
+            const validateOTPBtn = document.getElementById('validateOTPBtn');
+            const sendAgainBtn = document.getElementById('sendAgainBtn');
+            const phoneNumberSection = document.getElementById('phoneNumberSection');
+            const otpSection = document.getElementById('otpSection');
+            const timer = document.getElementById('timer');
+            const resultMessage = document.getElementById('resultMessage');
+            let countdown;
+
+            sendOTPBtn.addEventListener('click', async () => {
+                const selectedChannel = document.querySelector('input[name="otpChannel"]:checked').value;
+                const phoneNumber = document.getElementById('phoneNumber').value;
+                sendOTPBtn.disabled = true;
+
+                const payload = {
+                    channel: selectedChannel,
+                    phone_number: phoneNumber,
+                    expiration: EXPIRATION_TIME
+                };
+
+                try {
+                    const response = await fetch(`${API_HOST}/api/otp/create`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+                    resultMessage.innerText = data.message;
+                    resultMessage.classList.add(data.success ? 'alert-success' : 'alert-danger');
+                    resultMessage.style.display = 'block';
+
+                    phoneNumberSection.style.display = 'none';
+                    otpSection.style.display = 'block';
+                    startTimer();
+
+                } catch (error) {
+                    console.error('Error creating OTP:', error);
+                    resultMessage.innerText = 'Error creating OTP. Please try again.';
+                    resultMessage.classList.add('alert-danger');
+                    resultMessage.style.display = 'block';
+                    sendOTPBtn.disabled = false;
+                }
+            });
+
+            validateOTPBtn.addEventListener('click', async () => {
+                const otpCode = document.getElementById('otpCode').value;
+                validateOTPBtn.disabled = true;
+
+                const phoneNumber = document.getElementById('phoneNumber').value;
+                const payload = {
+                    otp_code: otpCode,
+                    phone_number: phoneNumber
+                };
+
+                try {
+                    const response = await fetch(`${API_HOST}/api/otp/validate`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+                    resultMessage.innerText = data.success ? 'OTP validated successfully.' : 'OTP is not valid.';
+                    resultMessage.classList.remove(["alert-danger", "alert-danger"]);
+                    resultMessage.classList.add(data.success ? 'alert-success' : 'alert-danger');
+                    resultMessage.style.display = 'block';
+                } catch (error) {
+                    console.error('Error validating OTP:', error);
+                    resultMessage.innerText = 'Error validating OTP. Please try again.';
+                    resultMessage.classList.add('alert-danger');
+                    resultMessage.style.display = 'block';
+                } finally {
+                    validateOTPBtn.disabled = false;
+                }
+            });
+
+            sendAgainBtn.addEventListener('click', () => {
+                otpSection.style.display = 'none';
+                phoneNumberSection.style.display = 'block';
+                clearTimeout(countdown);
+                resultMessage.style.display = 'none';
+            });
+
+            function startTimer() {
+                let seconds = EXPIRATION_TIME;
+
+                function updateTimer() {
+                    const minutes = Math.floor(seconds / 60);
+                    const remainingSeconds = seconds % 60;
+                    timer.innerText = `Time remaining: ${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+                    seconds--;
+
+                    if (seconds < 0) {
+                        clearTimeout(countdown);
+                        timer.innerText = '';
+                        sendAgainBtn.style.display = 'block';
+                    } else {
+                        countdown = setTimeout(updateTimer, 1000);
+                    }
+                }
+
+                updateTimer();
+            }
+        });
+    </script>
+</body>
+
+</html>

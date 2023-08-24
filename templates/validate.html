@@ -1,10 +1,58 @@
 {% extends "base.html" %}
 {% block body %}
 <h1> Validate OTP </h1>
-<form method="post" action="">
+<form id="otp-form" method="post" action="">
     <div class="form-group">
-        <input type="text" class="form-control" name="otp_code" placeholder="Enter the OTP code here" required>
+        <input type="text" class="form-control" name="otp_code" id="otp-code" placeholder="Enter the OTP code here"
+            required>
     </div>
-    <button type="submit" class="btn btn-lg btn-info">Validate OTP</button>
+    <input type="hidden" class="form-control" name="phone_number" id="phone-number"
+        placeholder="Enter your phone number" required>
+    <button type="submit" id="validate-btn" class="btn btn-lg btn-info">Validate OTP</button>
 </form>
+<p id="timer">Time left: 5 seconds</p>
+<button id="send-again-btn" class="btn btn-lg btn-secondary" style="display: none;">Send Again</button>
+
+<script>
+    let timerValue = 5; // Timer value in seconds
+    let timerInterval;
+
+    // Check if session phone number exists, otherwise use local storage value
+    let phoneNumber = "{{ session.get('phone_number') }}";
+    if (!phoneNumber) {
+        phoneNumber = localStorage.getItem("phone_number");
+    } else {
+        localStorage.setItem("phone_number", phoneNumber);
+    }
+    // Set the input field value
+    document.getElementById("phone-number").value = phoneNumber;
+
+    function updateTimer() {
+        const timerElement = document.getElementById("timer");
+        timerElement.textContent = `Time left: ${timerValue} seconds`;
+        timerValue--;
+
+        if (timerValue < 0) {
+            clearInterval(timerInterval);
+            timerElement.textContent = "Time's up!";
+            document.getElementById("otp-form").classList.add("disabled");
+            document.getElementById("otp-code").disabled = true;
+            document.getElementById("validate-btn").disabled = true;
+            document.getElementById("send-again-btn").style.display = "block";
+        }
+    }
+
+    timerInterval = setInterval(updateTimer, 1000);
+
+    document.getElementById("send-again-btn").addEventListener("click", function () {
+        window.location.href = "/"; // Redirect to the home page
+    });
+
+    window.onbeforeunload = function () {
+        window.setTimeout(function () {
+            window.location = '/';
+        }, 0);
+        window.onbeforeunload = null; // necessary to prevent infinite loop, that kills your browser 
+    }
+</script>
 {% endblock %}
